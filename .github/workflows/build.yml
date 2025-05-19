@@ -13,8 +13,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose --release
     - name: Clippy
       run: cargo clippy
     - name: Run tests
       run: cargo test --verbose
+    - uses: actions/upload-artifact@v4
+      with:
+        path: target/release/qqwry-rs
