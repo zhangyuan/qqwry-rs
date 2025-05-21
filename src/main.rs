@@ -1,4 +1,4 @@
-use qqwry_rs::Qqwry;
+use qqwry::Qqwry;
 use std::env;
 
 fn main() {
