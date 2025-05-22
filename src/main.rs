@@ -6,7 +6,7 @@ fn main() {
     let ip = env::args().nth(1).expect("ip is missing");
 
     match qqwry.lookup(&ip) {
-        Ok((country, region)) => println!("{}, {}", country, region),
+        Ok((location, info)) => println!("{}, {}", location, info),
         Err(e) => eprintln!("{}", e),
     }
 }
