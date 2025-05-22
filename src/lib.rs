@@ -117,35 +117,35 @@ impl Qqwry {
         let buf = &self.data;
         let pos = offset + 4;
         let flag = buf[pos];
-        let (country, area);
+        let (location, isp);
         if flag == 0x01 {
             let country_offset = read_u24(buf, pos + 1) as usize;
             let flag2 = buf[country_offset];
             if flag2 == 0x02 {
                 let country_offset2 = read_u24(buf, country_offset + 1) as usize;
                 let (c, _) = read_string(buf, country_offset2);
-                country = c;
+                location = c;
                 let (a, _) = self.read_region(country_offset + 4);
-                area = a;
+                isp = a;
             } else {
                 let (c, next) = read_string(buf, country_offset);
-                country = c;
+                location = c;
                 let (a, _) = self.read_region(next);
-                area = a;
+                isp = a;
             }
         } else if flag == 0x02 {
             let country_offset = read_u24(buf, pos + 1) as usize;
             let (c, _) = read_string(buf, country_offset);
-            country = c;
+            location = c;
             let (a, _) = self.read_region(pos + 4);
-            area = a;
+            isp = a;
         } else {
             let (c, next) = read_string(buf, pos);
-            country = c;
+            location = c;
             let (a, _) = self.read_region(next);
-            area = a;
+            isp = a;
         }
-        (country, area)
+        (location, isp)
     }
 
     pub fn lookup(&self, ip: &str) -> Result<(String, String), LookupError> {
