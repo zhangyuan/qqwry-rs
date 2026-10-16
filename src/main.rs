@@ -44,8 +44,8 @@ fn main() -> ExitCode {
     // Keep the historical single-address output compact.
     if let [ip] = ips {
         return match qqwry.lookup(ip) {
-            Ok((location, isp)) => {
-                println!("{location}, {isp}");
+            Ok(location) => {
+                println!("{location}");
                 ExitCode::SUCCESS
             }
             Err(error) => {
@@ -84,8 +84,8 @@ fn main() -> ExitCode {
 /// Looks up `ip`, printing the result. Returns `true` on failure.
 fn lookup_one(qqwry: &Qqwry, ip: &str) -> bool {
     match qqwry.lookup(ip) {
-        Ok((location, isp)) => {
-            println!("{ip}, {location}, {isp}");
+        Ok(location) => {
+            println!("{ip}, {location}");
             false
         }
         Err(error) => {

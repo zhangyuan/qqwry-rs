@@ -9,12 +9,13 @@ A Rust library and command-line tool for IPv4 address lookup using the
 use qqwry::Qqwry;
 
 let qqwry = Qqwry::new("data/qqwry.dat")?;
-let (location, isp) = qqwry.lookup("8.8.8.8")?;
-println!("{location}, {isp}");
+let location = qqwry.lookup("8.8.8.8")?;
+println!("{location}");
 // 美国–加利福尼亚州–圣克拉拉–山景城, 谷歌公司DNS服务器
+println!("{}, {}", location.location, location.isp);
 
 // If you already have a parsed address, skip the string parsing:
-let (location, isp) = qqwry.lookup_ip("8.8.8.8".parse()?)?;
+let location = qqwry.lookup_ip("8.8.8.8".parse()?)?;
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
@@ -50,6 +51,29 @@ mkdir -p data
 curl -fsSL -o data/qqwry.dat \
   https://github.com/metowolf/qqwry.dat/releases/latest/download/qqwry.dat
 ```
+
+## Caching
+
+`Qqwry::new` reads the whole file into memory once, and every later lookup is
+a pure in-memory operation — the database is not read per request. `Qqwry` is
+`Send + Sync`, so build it once and share it:
+
+```rust
+use std::sync::{Arc, OnceLock};
+
+use qqwry::Qqwry;
+
+static DB: OnceLock<Arc<Qqwry>> = OnceLock::new();
+
+let db = DB.get_or_init(|| Arc::new(Qqwry::new("data/qqwry.dat").unwrap()));
+let location = db.lookup("8.8.8.8")?;
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+Dropping the last `Arc` releases the ~27 MB, so "unload after a long idle
+period" is just dropping your copy and rebuilding later. If the database is
+refreshed while the process runs, watch its modification time and rebuild when
+it changes. The library keeps no global state or cache of its own.
 
 ## Testing
 

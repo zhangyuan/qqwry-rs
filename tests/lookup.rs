@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::OnceLock;
 
-use qqwry::{LookupError, Qqwry};
+use qqwry::{Error, Qqwry};
 
 const DATABASE_URL: &str =
     "https://github.com/metowolf/qqwry.dat/releases/latest/download/qqwry.dat";
@@ -69,11 +69,11 @@ fn looks_up_known_addresses() {
     let qqwry = Qqwry::new(database_path()).expect("open database");
 
     for ip in ["8.8.8.8", "1.1.1.1", "114.114.114.114"] {
-        let (location, isp) = qqwry
+        let result = qqwry
             .lookup(ip)
             .unwrap_or_else(|error| panic!("{ip}: {error}"));
-        assert!(!location.is_empty(), "{ip} has no location");
-        assert!(!isp.is_empty(), "{ip} has no isp");
+        assert!(!result.location.is_empty(), "{ip} has no location");
+        assert!(!result.isp.is_empty(), "{ip} has no isp");
     }
 }
 
@@ -85,10 +85,10 @@ fn the_database_also_covers_reserved_space() {
     // The qqwry database maps every IPv4 range, including reserved space,
     // which it labels with the responsible registry.
     for ip in ["127.0.0.1", "10.0.0.1", "192.0.2.1"] {
-        let (location, _) = qqwry
+        let result = qqwry
             .lookup(ip)
             .unwrap_or_else(|error| panic!("{ip}: {error}"));
-        assert!(!location.is_empty(), "{ip} has no location");
+        assert!(!result.location.is_empty(), "{ip} has no location");
     }
 }
 
@@ -130,7 +130,7 @@ fn a_truncated_database_is_reported_not_panicked_on() {
 
         match Qqwry::new(&path).map(|qqwry| qqwry.lookup("8.8.8.8")) {
             Ok(Ok(_)) => {}
-            Ok(Err(LookupError::Malformed | LookupError::NotFound)) | Err(_) => reported = true,
+            Ok(Err(Error::Malformed | Error::NotFound)) | Err(_) => reported = true,
             Ok(Err(other)) => panic!("unexpected lookup error: {other}"),
         }
     }
