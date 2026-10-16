@@ -1,3 +1,10 @@
+// The binary reports failures through its exit code and stderr rather than
+// panicking. Scoped to non-test builds so tests may use `unwrap`/`expect`.
+#![cfg_attr(
+    not(test),
+    deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
+)]
+
 use std::env;
 use std::io::{self, BufRead};
 use std::process::ExitCode;

@@ -23,6 +23,21 @@
 //! Since a redirected country also moves the area, a lookup resolves the
 //! country first and then follows it to the area.
 
+// Library code must never panic: malformed databases are reported through
+// [`Error`] instead. These lints are scoped to non-test builds so tests can
+// keep using `unwrap`/`expect`/`assert`.
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::todo,
+        clippy::unimplemented,
+        clippy::unreachable,
+    )
+)]
+
 use encoding_rs::GBK;
 use std::fmt;
 use std::fs;
@@ -44,13 +59,15 @@ const REDIRECT_MODE_2: u8 = 0x02;
 
 /// Reads a little-endian u32, or `None` if it would read past the buffer.
 fn read_u32(buf: &[u8], pos: usize) -> Option<u32> {
-    let bytes = buf.get(pos..pos + 4)?;
+    let end = pos.checked_add(4)?;
+    let bytes = buf.get(pos..end)?;
     Some(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
 }
 
 /// Reads a little-endian u24, or `None` if it would read past the buffer.
 fn read_u24(buf: &[u8], pos: usize) -> Option<u32> {
-    let bytes = buf.get(pos..pos + 3)?;
+    let end = pos.checked_add(3)?;
+    let bytes = buf.get(pos..end)?;
     Some(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], 0]))
 }
 
@@ -178,7 +195,8 @@ impl Qqwry {
         let mode = *buf.get(offset).ok_or(Error::Malformed)?;
 
         if mode == REDIRECT_MODE_1 || mode == REDIRECT_MODE_2 {
-            let area_offset = read_u24(buf, offset + 1).ok_or(Error::Malformed)? as usize;
+            let pointer = offset.checked_add(1).ok_or(Error::Malformed)?;
+            let area_offset = read_u24(buf, pointer).ok_or(Error::Malformed)? as usize;
             if area_offset == 0 {
                 // A zero pointer means there is no area.
                 Ok(String::new())
@@ -220,7 +238,8 @@ impl Qqwry {
         };
 
         let entry = self.index_start + index * INDEX_ENTRY_LEN;
-        let record = read_u24(buf, entry + IPV4_LEN).ok_or(Error::Malformed)? as usize;
+        let pointer = entry.checked_add(IPV4_LEN).ok_or(Error::Malformed)?;
+        let record = read_u24(buf, pointer).ok_or(Error::Malformed)? as usize;
         if record == 0 {
             return Ok(None);
         }
@@ -238,21 +257,26 @@ impl Qqwry {
     /// Reads the country and area of the record at `offset`.
     fn read_location(&self, offset: usize) -> Result<Location, Error> {
         let buf = &self.data;
-        let pos = offset + IPV4_LEN; // the region begins after the end address
+        // The region begins after the end address.
+        let pos = offset.checked_add(IPV4_LEN).ok_or(Error::Malformed)?;
         let mode = *buf.get(pos).ok_or(Error::Malformed)?;
 
         let (location, isp) = match mode {
             REDIRECT_MODE_1 => {
-                let country_offset = read_u24(buf, pos + 1).ok_or(Error::Malformed)? as usize;
+                let pointer = pos.checked_add(1).ok_or(Error::Malformed)?;
+                let country_offset = read_u24(buf, pointer).ok_or(Error::Malformed)? as usize;
                 let country_mode = *buf.get(country_offset).ok_or(Error::Malformed)?;
 
                 if country_mode == REDIRECT_MODE_2 {
                     // The country is redirected a second time, and the area
                     // follows the second pointer.
-                    let country_offset2 =
-                        read_u24(buf, country_offset + 1).ok_or(Error::Malformed)? as usize;
+                    let second = country_offset.checked_add(1).ok_or(Error::Malformed)?;
+                    let country_offset2 = read_u24(buf, second).ok_or(Error::Malformed)? as usize;
                     let country = read_text(buf, country_offset2)?;
-                    (country, self.read_area(country_offset + REDIRECT_LEN)?)
+                    let area = country_offset
+                        .checked_add(REDIRECT_LEN)
+                        .ok_or(Error::Malformed)?;
+                    (country, self.read_area(area)?)
                 } else {
                     let (country, next) =
                         read_string(buf, country_offset).ok_or(Error::Malformed)?;
@@ -260,9 +284,11 @@ impl Qqwry {
                 }
             }
             REDIRECT_MODE_2 => {
-                let country_offset = read_u24(buf, pos + 1).ok_or(Error::Malformed)? as usize;
+                let pointer = pos.checked_add(1).ok_or(Error::Malformed)?;
+                let country_offset = read_u24(buf, pointer).ok_or(Error::Malformed)? as usize;
                 let country = read_text(buf, country_offset)?;
-                (country, self.read_area(pos + REDIRECT_LEN)?)
+                let area = pos.checked_add(REDIRECT_LEN).ok_or(Error::Malformed)?;
+                (country, self.read_area(area)?)
             }
             _ => {
                 let (country, next) = read_string(buf, pos).ok_or(Error::Malformed)?;
