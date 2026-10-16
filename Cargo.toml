@@ -2,9 +2,20 @@
 name = "qqwry"
 version = "0.1.0"
 edition = "2024"
+description = "A library and CLI for IP address lookup using the 纯真 (qqwry.dat) database"
+license = "MIT"
+repository = "https://github.com/zhangyuan/qqwry-rs"
+readme = "README.md"
+keywords = ["qqwry", "ip", "geoip", "china", "lookup"]
+categories = ["command-line-utilities", "parser-implementations"]
 
 [dependencies]
 encoding_rs = "0.8.35"
 
 [dev-dependencies]
 ureq = "3.4.2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
